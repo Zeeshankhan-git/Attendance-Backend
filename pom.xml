@@ -14,7 +14,6 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     </properties>
 
-    <!-- ✅ Wrap your dependencies inside this -->
     <dependencies>
         <dependency>
             <groupId>org.json</groupId>
@@ -31,6 +30,9 @@
             <artifactId>postgresql</artifactId>
             <version>42.7.1</version>
         </dependency>
-
     </dependencies>
+
+    <build>
+        <finalName>attendancebackend</finalName>
+    </build>
 </project>

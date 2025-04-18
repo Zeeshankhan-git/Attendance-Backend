@@ -15,10 +15,10 @@ public class AttendanceServer {
         HttpServer server = HttpServer.create(new InetSocketAddress(PORT), 0);
 
         // PostgreSQL config from env variables
-        Dotenv dotenv = Dotenv.load();
-        String dbUrl = dotenv.get("DB_URL");
-        String dbUser = dotenv.get("DB_USER");
-        String dbPassword = dotenv.get("DB_PASSWORD");
+        String dbUrl = System.getenv("DB_URL");
+        String dbUser = System.getenv("DB_USER");
+        String dbPassword = System.getenv("DB_PASSWORD");
+
 
         if (dbUrl == null || dbUser == null || dbPassword == null) {
             System.err.println("Environment variables DB_URL, DB_USER, or DB_PASSWORD not set.");

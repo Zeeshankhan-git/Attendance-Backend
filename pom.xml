@@ -33,6 +33,6 @@
     </dependencies>
 
     <build>
-        <finalName>attendancebackend</finalName>
+        <finalName>attendancebackend-1.0-SNAPSHOT.jar</finalName>
     </build>
 </project>

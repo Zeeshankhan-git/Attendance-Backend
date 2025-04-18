@@ -1,0 +1,1 @@
+web: java -jar target/attendance-server-1.0-SNAPSHOT.jar

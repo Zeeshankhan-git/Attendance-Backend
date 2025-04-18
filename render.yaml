@@ -1,0 +1,28 @@
+services:
+  - type: web
+    name: attendance-server
+    env: java
+    buildCommand: mvn clean package
+    startCommand: java -jar target/attendance-server-1.0-SNAPSHOT.jar
+    plan: free
+    envVars:
+      - key: PORT
+        value: 8080
+      - key: DB_URL
+        value: "jdbc:postgresql://your-database-host:5432/postgres"
+        fromDatabase:
+          name: attendance-db
+          property: connectionString
+      - key: DB_USER
+        fromDatabase:
+          name: attendance-db
+          property: user
+      - key: DB_PASSWORD
+        fromDatabase:
+          name: attendance-db
+          property: password
+
+databases:
+  - name: attendance-db
+    plan: free
+    ipAllowList: []

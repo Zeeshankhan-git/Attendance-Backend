@@ -26,7 +26,7 @@ public class AttendanceServer {
             initializeDatabase(conn);
         } catch (SQLException e) {
             System.err.println("Database connection failed: " + e.getMessage());
-            return;
+            System.err.println("Skipping database initialization for now...");
         }
 
         int port = Integer.parseInt(Env.get("PORT", "8080"));

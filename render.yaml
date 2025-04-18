@@ -3,7 +3,8 @@ services:
     name: attendance-server
     env: java
     buildCommand: mvn clean package
-    startCommand: java -jar target/attendance-server-1.0-SNAPSHOT.jar
+    startCommand: java -jar target/attendancebackend-1.0-SNAPSHOT.jar
+
     plan: free
     envVars:
       - key: PORT

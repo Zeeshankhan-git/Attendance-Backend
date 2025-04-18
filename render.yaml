@@ -9,7 +9,6 @@ services:
       - key: PORT
         value: 8080
       - key: DB_URL
-        value: "jdbc:postgresql://your-database-host:5432/postgres"
         fromDatabase:
           name: attendance-db
           property: connectionString

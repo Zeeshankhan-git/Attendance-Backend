@@ -2,26 +2,18 @@ services:
   - type: web
     name: attendance-server
     env: java
-    buildCommand: mvn clean package
+    buildCommand: mvn clean package -DskipTests
     startCommand: java -jar target/attendancebackend-1.0-SNAPSHOT.jar
-
     plan: free
     envVars:
       - key: PORT
         value: 8080
       - key: DB_URL
-        fromDatabase:
-          name: attendance-db
-          property: connectionString
+        value: jdbc:postgresql://dpg-clusv0f109ks73f1nvt0-a.singapore-postgres.render.com:5432/company_db_5g30?sslmode=require
       - key: DB_USER
-        fromDatabase:
-          name: attendance-db
-          property: user
+        value: admin_user
       - key: DB_PASSWORD
-        fromDatabase:
-          name: attendance-db
-          property: password
-
+        value: ebAxBBfi8huR3pdJpegLe5SYOoSBErwt
 databases:
   - name: attendance-db
     plan: free

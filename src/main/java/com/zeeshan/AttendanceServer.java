@@ -15,10 +15,10 @@ public class AttendanceServer {
         HttpServer server = HttpServer.create(new InetSocketAddress(PORT), 0);
 
         // PostgreSQL config from env variables
-        String dbUrl = System.getenv("DB_URL");
-        String dbUser = System.getenv("DB_USER");
-        String dbPassword = System.getenv("DB_PASSWORD");
-
+        Dotenv dotenv = Dotenv.load();
+        String dbUrl = dotenv.get("DB_URL");
+        String dbUser = dotenv.get("DB_USER");
+        String dbPassword = dotenv.get("DB_PASSWORD");
 
         if (dbUrl == null || dbUser == null || dbPassword == null) {
             System.err.println("Environment variables DB_URL, DB_USER, or DB_PASSWORD not set.");
@@ -77,6 +77,7 @@ public class AttendanceServer {
             exchange.sendResponseHeaders(302, -1);
         });
 
+        server.setExecutor(null); // Default executor
         server.start();
         System.out.println("Server started on port " + PORT);
     }
@@ -105,15 +106,20 @@ public class AttendanceServer {
             if (part.startsWith("name=")) name = URLDecoder.decode(part.split("=")[1], StandardCharsets.UTF_8);
         }
 
+        if (email == null || password == null || name == null) {
+            sendJsonResponse(exchange, 400, "{\"status\":\"error\",\"message\":\"Missing required fields\"}");
+            return;
+        }
+
         try (Connection conn = DriverManager.getConnection(dbUrl, dbUser, dbPassword)) {
             PreparedStatement stmt = conn.prepareStatement("INSERT INTO sys_user (name, email, password) VALUES (?, ?, ?)");
             stmt.setString(1, name);
             stmt.setString(2, email);
             stmt.setString(3, password);
             stmt.executeUpdate();
-            sendResponse(exchange, 200, "Signup successful");
+            sendJsonResponse(exchange, 200, "{\"status\":\"success\",\"message\":\"Signup successful\"}");
         } catch (SQLException e) {
-            sendResponse(exchange, 500, "Signup failed: " + e.getMessage());
+            sendJsonResponse(exchange, 500, "{\"status\":\"error\",\"message\":\"Signup failed: " + e.getMessage() + "\"}");
         }
     }
 
@@ -127,6 +133,11 @@ public class AttendanceServer {
             if (part.startsWith("password=")) password = URLDecoder.decode(part.split("=")[1], StandardCharsets.UTF_8);
         }
 
+        if (email == null || password == null) {
+            sendJsonResponse(exchange, 400, "{\"status\":\"error\",\"message\":\"Missing email or password\"}");
+            return;
+        }
+
         try (Connection conn = DriverManager.getConnection(dbUrl, dbUser, dbPassword)) {
             PreparedStatement stmt = conn.prepareStatement("SELECT * FROM sys_user WHERE email=? AND password=?");
             stmt.setString(1, email);
@@ -134,83 +145,133 @@ public class AttendanceServer {
             ResultSet rs = stmt.executeQuery();
 
             if (rs.next()) {
-                sendResponse(exchange, 200, "Login successful");
+                sendJsonResponse(exchange, 200, "{\"status\":\"success\",\"message\":\"Login successful\"}");
             } else {
-                sendResponse(exchange, 401, "Invalid credentials");
+                sendJsonResponse(exchange, 401, "{\"status\":\"error\",\"message\":\"Invalid credentials\"}");
             }
         } catch (SQLException e) {
-            sendResponse(exchange, 500, "Login failed: " + e.getMessage());
+            sendJsonResponse(exchange, 500, "{\"status\":\"error\",\"message\":\"Login failed: " + e.getMessage() + "\"}");
         }
     }
 
     private static void handleAttendance(HttpExchange exchange, String dbUrl, String dbUser, String dbPassword) throws IOException {
         String requestBody = new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
-        Map<String, String> data = parseFormData(requestBody);
+        Map<String, String> data = parseJsonData(requestBody);
+
+        String username = data.get("username");
+        String latitude = data.get("latitude");
+        String longitude = data.get("longitude");
+        String image = data.get("image");
+        String description = data.get("description");
+
+        if (username == null || latitude == null || longitude == null) {
+            sendJsonResponse(exchange, 400, "{\"status\":\"error\",\"message\":\"Missing required fields\"}");
+            return;
+        }
 
         try (Connection conn = DriverManager.getConnection(dbUrl, dbUser, dbPassword)) {
             PreparedStatement stmt = conn.prepareStatement(
                     "INSERT INTO attendance_log (user_email, timestamp, latitude, longitude, address, weather, image, remark, type) " +
-                            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)"
+                            "VALUES (?, NOW(), ?, ?, ?, ?, ?, ?, 1)"
             );
-            stmt.setString(1, data.get("email"));
-            stmt.setTimestamp(2, Timestamp.valueOf(data.get("timestamp")));
-            stmt.setDouble(3, Double.parseDouble(data.get("latitude")));
-            stmt.setDouble(4, Double.parseDouble(data.get("longitude")));
-            stmt.setString(5, data.get("address"));
-            stmt.setString(6, data.get("weather"));
-            stmt.setString(7, data.get("image"));
-            stmt.setString(8, data.get("remark"));
+            stmt.setString(1, username);
+            stmt.setDouble(2, Double.parseDouble(latitude));
+            stmt.setDouble(3, Double.parseDouble(longitude));
+            stmt.setString(4, data.get("address"));
+            stmt.setString(5, data.get("weather"));
+            stmt.setString(6, image);
+            stmt.setString(7, description);
             stmt.executeUpdate();
-            sendResponse(exchange, 200, "Attendance marked");
+            sendJsonResponse(exchange, 200, "{\"status\":\"success\",\"message\":\"Attendance marked\"}");
         } catch (SQLException e) {
-            sendResponse(exchange, 500, "Attendance failed: " + e.getMessage());
+            sendJsonResponse(exchange, 500, "{\"status\":\"error\",\"message\":\"Attendance failed: " + e.getMessage() + "\"}");
         }
     }
 
     private static void handleExit(HttpExchange exchange, String dbUrl, String dbUser, String dbPassword) throws IOException {
         String requestBody = new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
-        Map<String, String> data = parseFormData(requestBody);
+        Map<String, String> data = parseJsonData(requestBody);
+
+        String username = data.get("username");
+        String latitude = data.get("latitude");
+        String longitude = data.get("longitude");
+        String image = data.get("image");
+        String description = data.get("description");
+
+        if (username == null || latitude == null || longitude == null) {
+            sendJsonResponse(exchange, 400, "{\"status\":\"error\",\"message\":\"Missing required fields\"}");
+            return;
+        }
 
         try (Connection conn = DriverManager.getConnection(dbUrl, dbUser, dbPassword)) {
             PreparedStatement stmt = conn.prepareStatement(
                     "INSERT INTO attendance_log (user_email, timestamp, latitude, longitude, address, weather, image, remark, type) " +
-                            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, 2)"
+                            "VALUES (?, NOW(), ?, ?, ?, ?, ?, ?, 2)"
             );
-            stmt.setString(1, data.get("email"));
-            stmt.setTimestamp(2, Timestamp.valueOf(data.get("timestamp")));
-            stmt.setDouble(3, Double.parseDouble(data.get("latitude")));
-            stmt.setDouble(4, Double.parseDouble(data.get("longitude")));
-            stmt.setString(5, data.get("address"));
-            stmt.setString(6, data.get("weather"));
-            stmt.setString(7, data.get("image"));
-            stmt.setString(8, data.get("remark"));
+            stmt.setString(1, username);
+            stmt.setDouble(2, Double.parseDouble(latitude));
+            stmt.setDouble(3, Double.parseDouble(longitude));
+            stmt.setString(4, data.get("address"));
+            stmt.setString(5, data.get("weather"));
+            stmt.setString(6, image);
+            stmt.setString(7, description);
             stmt.executeUpdate();
-            sendResponse(exchange, 200, "Exit marked");
+            sendJsonResponse(exchange, 200, "{\"status\":\"success\",\"message\":\"Exit marked\"}");
         } catch (SQLException e) {
-            sendResponse(exchange, 500, "Exit failed: " + e.getMessage());
+            sendJsonResponse(exchange, 500, "{\"status\":\"error\",\"message\":\"Exit failed: " + e.getMessage() + "\"}");
         }
     }
 
     private static void handleSaveLocation(HttpExchange exchange, String dbUrl, String dbUser, String dbPassword) throws IOException {
-        sendResponse(exchange, 200, "Location saved (dummy response)");
+        String requestBody = new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
+        Map<String, String> data = parseJsonData(requestBody);
+
+        String username = data.get("username");
+        String name = data.get("name");
+        String latitude = data.get("latitude");
+        String longitude = data.get("longitude");
+
+        if (username == null || name == null || latitude == null || longitude == null) {
+            sendJsonResponse(exchange, 400, "{\"status\":\"error\",\"message\":\"Missing required fields\"}");
+            return;
+        }
+
+        try (Connection conn = DriverManager.getConnection(dbUrl, dbUser, dbPassword)) {
+            PreparedStatement stmt = conn.prepareStatement(
+                    "INSERT INTO saved_locations (user_email, name, latitude, longitude) VALUES (?, ?, ?, ?)"
+            );
+            stmt.setString(1, username);
+            stmt.setString(2, name);
+            stmt.setDouble(3, Double.parseDouble(latitude));
+            stmt.setDouble(4, Double.parseDouble(longitude));
+            stmt.executeUpdate();
+            sendJsonResponse(exchange, 200, "{\"status\":\"success\",\"message\":\"Location saved\"}");
+        } catch (SQLException e) {
+            sendJsonResponse(exchange, 500, "{\"status\":\"error\",\"message\":\"Failed to save location: " + e.getMessage() + "\"}");
+        }
     }
 
-    private static void sendResponse(HttpExchange exchange, int statusCode, String responseText) throws IOException {
-        byte[] bytes = responseText.getBytes(StandardCharsets.UTF_8);
+    private static void sendJsonResponse(HttpExchange exchange, int statusCode, String jsonResponse) throws IOException {
+        exchange.getResponseHeaders().set("Content-Type", "application/json");
+        byte[] bytes = jsonResponse.getBytes(StandardCharsets.UTF_8);
         exchange.sendResponseHeaders(statusCode, bytes.length);
         OutputStream os = exchange.getResponseBody();
         os.write(bytes);
         os.close();
     }
 
-    private static Map<String, String> parseFormData(String data) {
+    private static Map<String, String> parseJsonData(String json) {
         Map<String, String> map = new HashMap<>();
-        for (String pair : data.split("&")) {
-            String[] parts = pair.split("=");
-            if (parts.length == 2) {
-                map.put(URLDecoder.decode(parts[0], StandardCharsets.UTF_8),
-                        URLDecoder.decode(parts[1], StandardCharsets.UTF_8));
+        try {
+            json = json.replace("{", "").replace("}", "").replace("\"", "");
+            for (String pair : json.split(",")) {
+                String[] parts = pair.split(":");
+                if (parts.length == 2) {
+                    map.put(parts[0].trim(), parts[1].trim());
+                }
             }
+        } catch (Exception e) {
+            System.err.println("JSON parsing error: " + e.getMessage());
         }
         return map;
     }
@@ -240,6 +301,16 @@ public class AttendanceServer {
                     image TEXT,
                     remark TEXT,
                     type INTEGER NOT NULL
+                );
+            """);
+
+            stmt.executeUpdate("""
+                CREATE TABLE IF NOT EXISTS saved_locations (
+                    id SERIAL PRIMARY KEY,
+                    user_email TEXT REFERENCES sys_user(email),
+                    name TEXT NOT NULL,
+                    latitude DOUBLE PRECISION NOT NULL,
+                    longitude DOUBLE PRECISION NOT NULL
                 );
             """);
 

@@ -15,7 +15,12 @@ public class AttendanceServer {
         HttpServer server = HttpServer.create(new InetSocketAddress(PORT), 0);
 
         // PostgreSQL config from env variables
-        Dotenv dotenv = Dotenv.load();
+        Dotenv dotenv = Dotenv.configure()
+                .directory(".")
+                .filename(".env")
+                .ignoreIfMissing()
+                .load();
+
         String dbUrl = dotenv.get("DB_URL");
         String dbUser = dotenv.get("DB_USER");
         String dbPassword = dotenv.get("DB_PASSWORD");
